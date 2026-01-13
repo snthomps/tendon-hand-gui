@@ -1,189 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AlertTriangle, Power, Zap, Activity, TrendingUp, BarChart3 } from 'lucide-react';
 
-// Hand visualization component - defined outside main component to prevent remounting
-const HandVisualization = React.memo(({ joints, servos }) => {
-  const canvasRef = useRef(null);
-  const offscreenCanvasRef = useRef(null);
-  const animationFrameRef = useRef(null);
-  const jointsRef = useRef(joints);
-  const servosRef = useRef(servos);
-
-  // Keep refs updated with latest data
-  useEffect(() => {
-    jointsRef.current = joints;
-    servosRef.current = servos;
-  }, [joints, servos]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    // Create offscreen canvas for double-buffering
-    if (!offscreenCanvasRef.current) {
-      offscreenCanvasRef.current = document.createElement('canvas');
-      offscreenCanvasRef.current.width = canvas.width;
-      offscreenCanvasRef.current.height = canvas.height;
-    }
-
-    const drawFrame = () => {
-      const currentJoints = jointsRef.current;
-      const currentServos = servosRef.current;
-
-      const offscreen = offscreenCanvasRef.current;
-      const ctx = offscreen.getContext("2d");
-      ctx.clearRect(0, 0, offscreen.width, offscreen.height);
-
-      // Background
-      ctx.fillStyle = '#f9fafb';
-      ctx.fillRect(0, 0, offscreen.width, offscreen.height);
-
-      // ----- Palm (fixed) -----
-      const palmX = 150;
-      const palmY = 250;
-      const palmWidth = 100;
-      const palmHeight = 120;
-      ctx.fillStyle = "#4a5568";
-      ctx.fillRect(palmX, palmY, palmWidth, palmHeight);
-      ctx.strokeStyle = "#2d3748";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(palmX, palmY, palmWidth, palmHeight);
-
-      // Helper: draw a joint marker at current origin
-      const drawJoint = (color, r = 4) => {
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.arc(0, 0, r, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.strokeStyle = "#ffffff";
-        ctx.lineWidth = 2;
-        ctx.stroke();
-      };
-
-      // Helper: draw a segment that extends UP (negative Y) from the current joint
-      const drawSegmentUp = (w, len, fill) => {
-        ctx.fillStyle = fill;
-        ctx.fillRect(-w / 2, -len, w, len);
-        ctx.translate(0, -len);
-      };
-
-      const top = palmY;
-      const left = palmX;
-      const right = palmX + palmWidth;
-
-      const fingers = [
-        {
-          name: "thumb",
-          attachX: left - 2,
-          attachY: palmY + 70,
-          joints: currentJoints.thumb,
-          baseAngle: -60,
-        },
-        {
-          name: "index",
-          attachX: left + palmWidth * 0.22,
-          attachY: top + 2,
-          joints: currentJoints.index,
-          baseAngle: -10,
-        },
-        {
-          name: "middle",
-          attachX: left + palmWidth * 0.50,
-          attachY: top + 0,
-          joints: currentJoints.middle,
-          baseAngle: 0,
-        },
-        {
-          name: "ring",
-          attachX: left + palmWidth * 0.74,
-          attachY: top + 2,
-          joints: currentJoints.ring,
-          baseAngle: 10,
-        },
-        {
-          name: "pinky",
-          attachX: right - 4,
-          attachY: top + 8,
-          joints: currentJoints.pinky,
-          baseAngle: 18,
-        },
-      ];
-
-      fingers.forEach((finger, idx) => {
-        ctx.save();
-        const servoColor = currentServos?.[idx]?.color || "#63b3ed";
-        ctx.translate(finger.attachX, finger.attachY);
-        ctx.rotate((finger.baseAngle * Math.PI) / 180);
-        drawJoint(servoColor, 5);
-
-        const isThumb = finger.name === "thumb";
-        const segmentLengths = isThumb ? [40, 32] : [35, 28, 22];
-
-        const mcp = finger.joints?.mcp ?? 0;
-        const pip = finger.joints?.pip ?? 0;
-        const ip = finger.joints?.ip ?? 0;
-        const dip = finger.joints?.dip ?? 0;
-
-        // Proximal phalanx
-        ctx.rotate((mcp * Math.PI) / 180);
-        drawSegmentUp(10, segmentLengths[0], "#718096");
-        drawJoint(servoColor, 4);
-
-        // Middle phalanx (PIP or IP for thumb)
-        const midAngle = isThumb ? ip : pip;
-        ctx.rotate((midAngle * Math.PI) / 180);
-        drawSegmentUp(8, segmentLengths[1], "#a0aec0");
-        drawJoint(servoColor, 4);
-
-        // Distal phalanx (only for non-thumb)
-        if (!isThumb) {
-          ctx.rotate((dip * Math.PI) / 180);
-          drawSegmentUp(6, segmentLengths[2], "#cbd5e0");
-        }
-
-        // Fingertip marker
-        drawJoint(servoColor, 3);
-
-        ctx.restore();
-      });
-
-      // Draw label
-      ctx.fillStyle = "#4a5568";
-      ctx.font = "bold 12px Arial";
-      ctx.textAlign = "center";
-      ctx.fillText("Palm (Fixed)", palmX + palmWidth / 2, palmY + palmHeight + 20);
-      ctx.font = "10px Arial";
-      ctx.fillText(
-        "Servos in forearm - Tendons pull fingers to flex",
-        palmX + palmWidth / 2,
-        palmY + palmHeight + 35
-      );
-
-      // Copy offscreen canvas to visible canvas
-      const visibleCtx = canvas.getContext('2d');
-      visibleCtx.drawImage(offscreen, 0, 0);
-
-      // Continue animation loop
-      animationFrameRef.current = requestAnimationFrame(drawFrame);
-    };
-
-    // Start animation loop
-    animationFrameRef.current = requestAnimationFrame(drawFrame);
-
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, []);
-
-  return <canvas ref={canvasRef} width={400} height={450} className="border border-gray-300 rounded bg-gray-50" />;
-});
-
 const TendonDrivenHandGUI = () => {
   // Navigation state
   const [activePage, setActivePage] = useState('control');
-  const [selectedFinger, setSelectedFinger] = useState(0);
   
   // Servo state (PWM values 500-2500 microseconds)
   const [servos, setServos] = useState([
@@ -370,173 +190,266 @@ const TendonDrivenHandGUI = () => {
     setTimeSeriesData([]);
   };
 
-  // Time Series Plot Component - with continuous animation loop
-  const TimeSeriesPlot = ({ title, dataKey, ylabel, colors }) => {
+  // Draw hand visualization
+  const HandVisualization = () => {
     const canvasRef = useRef(null);
-    const offscreenCanvasRef = useRef(null);
-    const animationFrameRef = useRef(null);
-    const dataRef = useRef(timeSeriesData);
-    const servosRef = useRef(servos);
-
-    // Keep refs updated with latest data
-    useEffect(() => {
-      dataRef.current = timeSeriesData;
-      servosRef.current = servos;
-    }, [timeSeriesData, servos]);
-
     useEffect(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // ----- Palm (fixed) -----
+      const palmX = 150;
+      const palmY = 250;
+      const palmWidth = 100;
+      const palmHeight = 120;
+      ctx.fillStyle = "#4a5568";
+      ctx.fillRect(palmX, palmY, palmWidth, palmHeight);
+      ctx.strokeStyle = "#2d3748";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(palmX, palmY, palmWidth, palmHeight);
+      // Helper: draw a joint marker at current origin
+      const drawJoint = (color, r = 4) => {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      };
+      // Helper: draw a segment that extends UP (negative Y) from the current joint
+      const drawSegmentUp = (w, len, fill) => {
+        ctx.fillStyle = fill;
+        // rectangle whose bottom is at the joint (0,0) and goes upward
+        ctx.fillRect(-w / 2, -len, w, len);
+        // move origin to the end of the segment (next joint location)
+        ctx.translate(0, -len);
+      };
+      // IMPORTANT: attachment points must actually sit on/near the palm.
+      // Top edge is palmY, right edge is palmX + palmWidth.
+      const top = palmY;
+      const left = palmX;
+      const right = palmX + palmWidth;
+      // Fingers attach along the top edge; thumb attaches on left side
+      const fingers = [
+        {
+          name: "thumb",
+          attachX: left - 2,             // just outside left edge
+          attachY: palmY + 70,           // thumb attaches on side, not top
+          joints: joints.thumb,
+          baseAngle: -60,                // points up-left
+        },
+        {
+          name: "index",
+          attachX: left + palmWidth * 0.22,
+          attachY: top + 2,
+          joints: joints.index,
+          baseAngle: -10,                // slight splay
+        },
+        {
+          name: "middle",
+          attachX: left + palmWidth * 0.50,
+          attachY: top + 0,
+          joints: joints.middle,
+          baseAngle: 0,
+        },
+        {
+          name: "ring",
+          attachX: left + palmWidth * 0.74,
+          attachY: top + 2,
+          joints: joints.ring,
+          baseAngle: 10,
+        },
+        {
+          name: "pinky",
+          attachX: right - 4,            // keep it on the palm edge (NOT past it)
+          attachY: top + 8,
+          joints: joints.pinky,
+          baseAngle: 18,
+        },
+      ];
+      fingers.forEach((finger, idx) => {
+        ctx.save();
+        const servoColor = servos?.[idx]?.color || "#63b3ed";
+        // Move to fixed attachment point
+        ctx.translate(finger.attachX, finger.attachY);
+        // Orient finger "mostly up" (we draw segments upward by default)
+        ctx.rotate((finger.baseAngle * Math.PI) / 180);
+        // Attachment marker
+        drawJoint(servoColor, 5);
+        const isThumb = finger.name === "thumb";
+        const segmentLengths = isThumb ? [40, 32] : [35, 28, 22];
+        // NOTE:
+        // Positive canvas rotation is clockwise. With our finger pointing "up",
+        // flexion (curling toward the palm) is typically clockwise for a right-hand view.
+        // If your flex direction looks reversed, flip the sign: use (-angle) below.
+        const mcp = finger.joints?.mcp ?? 0;
+        const pip = finger.joints?.pip ?? 0;
+        const ip = finger.joints?.ip ?? 0;
+        const dip = finger.joints?.dip ?? 0;
 
-      // Create offscreen canvas for double-buffering
-      if (!offscreenCanvasRef.current) {
-        offscreenCanvasRef.current = document.createElement('canvas');
-        offscreenCanvasRef.current.width = canvas.width;
-        offscreenCanvasRef.current.height = canvas.height;
+        // Proximal phalanx
+        ctx.rotate((mcp * Math.PI) / 180);
+        drawSegmentUp(10, segmentLengths[0], "#718096");
+        drawJoint(servoColor, 4);
+
+        // Middle phalanx (PIP or IP for thumb)
+        const midAngle = isThumb ? ip : pip;
+        ctx.rotate((midAngle * Math.PI) / 180);
+        drawSegmentUp(8, segmentLengths[1], "#a0aec0");
+        drawJoint(servoColor, 4);
+
+        // Distal phalanx (only for non-thumb)
+        if (!isThumb) {
+          ctx.rotate((dip * Math.PI) / 180);
+          drawSegmentUp(6, segmentLengths[2], "#cbd5e0");
+        }
+
+        // Fingertip marker
+        drawJoint(servoColor, 3);
+
+        ctx.restore();
+      });
+      // Draw label
+      ctx.fillStyle = "#4a5568";
+      ctx.font = "bold 12px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("Palm (Fixed)", palmX + palmWidth / 2, palmY + palmHeight + 20);
+      ctx.font = "10px Arial";
+      ctx.fillText(
+        "Servos in forearm - Tendons pull fingers to flex",
+        palmX + palmWidth / 2,
+        palmY + palmHeight + 35
+      );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [joints, servos]);
+
+    return <canvas ref={canvasRef} width={400} height={450} className="border border-gray-300 rounded bg-gray-50" />;
+  };
+
+  // Time Series Plot Component
+  const TimeSeriesPlot = ({ title, dataKey, ylabel, colors }) => {
+    const canvasRef = useRef(null);
+
+    useEffect(() => {
+      const canvas = canvasRef.current;
+      if (!canvas || timeSeriesData.length === 0) return;
+
+      const ctx = canvas.getContext('2d');
+      const width = canvas.width;
+      const height = canvas.height;
+      const padding = { top: 30, right: 20, bottom: 40, left: 60 };
+      const plotWidth = width - padding.left - padding.right;
+      const plotHeight = height - padding.top - padding.bottom;
+
+      ctx.clearRect(0, 0, width, height);
+
+      // Background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+
+      // Plot area
+      ctx.fillStyle = '#f9fafb';
+      ctx.fillRect(padding.left, padding.top, plotWidth, plotHeight);
+
+      // Title
+      ctx.fillStyle = '#1f2937';
+      ctx.font = 'bold 14px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(title, width / 2, 20);
+
+      // Get data range
+      let minVal = Infinity, maxVal = -Infinity;
+      timeSeriesData.forEach(point => {
+        point.servos.forEach(servo => {
+          const val = servo[dataKey];
+          minVal = Math.min(minVal, val);
+          maxVal = Math.max(maxVal, val);
+        });
+      });
+
+      // Add padding to range
+      const range = maxVal - minVal || 1;
+      minVal -= range * 0.1;
+      maxVal += range * 0.1;
+
+      // Draw grid
+      ctx.strokeStyle = '#e5e7eb';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 5; i++) {
+        const y = padding.top + (plotHeight * i / 5);
+        ctx.beginPath();
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(padding.left + plotWidth, y);
+        ctx.stroke();
+
+        // Y-axis labels
+        const val = maxVal - (range * i / 5);
+        ctx.fillStyle = '#6b7280';
+        ctx.font = '11px Arial';
+        ctx.textAlign = 'right';
+        ctx.fillText(val.toFixed(1), padding.left - 5, y + 4);
       }
 
-      const drawFrame = () => {
-        const currentData = dataRef.current;
-        const currentServos = servosRef.current;
-        
-        if (currentData.length === 0) {
-          animationFrameRef.current = requestAnimationFrame(drawFrame);
-          return;
-        }
+      // Y-axis label
+      ctx.save();
+      ctx.translate(15, height / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillStyle = '#374151';
+      ctx.font = '12px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(ylabel, 0, 0);
+      ctx.restore();
 
-        const offscreen = offscreenCanvasRef.current;
-        const ctx = offscreen.getContext('2d');
-        const width = offscreen.width;
-        const height = offscreen.height;
-        const padding = { top: 30, right: 20, bottom: 40, left: 60 };
-        const plotWidth = width - padding.left - padding.right;
-        const plotHeight = height - padding.top - padding.bottom;
+      // X-axis label
+      ctx.fillStyle = '#374151';
+      ctx.font = '12px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('Time (samples)', width / 2, height - 10);
 
-        // Draw to offscreen canvas
-        ctx.clearRect(0, 0, width, height);
+      // Plot lines for each servo
+      servos.forEach((servo, servoIdx) => {
+        ctx.strokeStyle = colors ? colors[servoIdx] : servo.color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
 
-        // Background
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, width, height);
+        timeSeriesData.forEach((point, idx) => {
+          const servoData = point.servos[servoIdx];
+          const x = padding.left + (plotWidth * idx / (timeSeriesData.length - 1 || 1));
+          const y = padding.top + plotHeight - ((servoData[dataKey] - minVal) / (maxVal - minVal) * plotHeight);
 
-        // Plot area
-        ctx.fillStyle = '#f9fafb';
-        ctx.fillRect(padding.left, padding.top, plotWidth, plotHeight);
-
-        // Title
-        ctx.fillStyle = '#1f2937';
-        ctx.font = 'bold 14px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(title, width / 2, 20);
-
-        // Get data range
-        let minVal = Infinity, maxVal = -Infinity;
-        currentData.forEach(point => {
-          point.servos.forEach(servo => {
-            const val = servo[dataKey];
-            minVal = Math.min(minVal, val);
-            maxVal = Math.max(maxVal, val);
-          });
+          if (idx === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
         });
 
-        // Add padding to range
-        const range = maxVal - minVal || 1;
-        minVal -= range * 0.1;
-        maxVal += range * 0.1;
+        ctx.stroke();
+      });
 
-        // Draw grid
-        ctx.strokeStyle = '#e5e7eb';
-        ctx.lineWidth = 1;
-        for (let i = 0; i <= 5; i++) {
-          const y = padding.top + (plotHeight * i / 5);
-          ctx.beginPath();
-          ctx.moveTo(padding.left, y);
-          ctx.lineTo(padding.left + plotWidth, y);
-          ctx.stroke();
-
-          // Y-axis labels
-          const val = maxVal - (range * i / 5);
-          ctx.fillStyle = '#6b7280';
-          ctx.font = '11px Arial';
-          ctx.textAlign = 'right';
-          ctx.fillText(val.toFixed(1), padding.left - 5, y + 4);
-        }
-
-        // Y-axis label
-        ctx.save();
-        ctx.translate(15, height / 2);
-        ctx.rotate(-Math.PI / 2);
+      // Legend
+      const legendX = padding.left + 10;
+      let legendY = padding.top + 10;
+      servos.forEach((servo, idx) => {
+        ctx.fillStyle = colors ? colors[idx] : servo.color;
+        ctx.fillRect(legendX, legendY, 15, 3);
         ctx.fillStyle = '#374151';
-        ctx.font = '12px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(ylabel, 0, 0);
-        ctx.restore();
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText(servo.name.split(' ')[0], legendX + 20, legendY + 3);
+        legendY += 15;
+      });
 
-        // X-axis label
-        ctx.fillStyle = '#374151';
-        ctx.font = '12px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText('Time (samples)', width / 2, height - 10);
-
-        // Plot lines for each servo
-        currentServos.forEach((servo, servoIdx) => {
-          ctx.strokeStyle = colors ? colors[servoIdx] : servo.color;
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-
-          currentData.forEach((point, idx) => {
-            const servoData = point.servos[servoIdx];
-            if (!servoData) return;
-            const x = padding.left + (plotWidth * idx / (currentData.length - 1 || 1));
-            const y = padding.top + plotHeight - ((servoData[dataKey] - minVal) / (maxVal - minVal) * plotHeight);
-
-            if (idx === 0) {
-              ctx.moveTo(x, y);
-            } else {
-              ctx.lineTo(x, y);
-            }
-          });
-
-          ctx.stroke();
-        });
-
-        // Legend
-        const legendX = padding.left + 10;
-        let legendY = padding.top + 10;
-        currentServos.forEach((servo, idx) => {
-          ctx.fillStyle = colors ? colors[idx] : servo.color;
-          ctx.fillRect(legendX, legendY, 15, 3);
-          ctx.fillStyle = '#374151';
-          ctx.font = '10px Arial';
-          ctx.textAlign = 'left';
-          ctx.fillText(servo.name.split(' ')[0], legendX + 20, legendY + 3);
-          legendY += 15;
-        });
-
-        // Copy offscreen canvas to visible canvas in one operation
-        const visibleCtx = canvas.getContext('2d');
-        visibleCtx.drawImage(offscreen, 0, 0);
-
-        // Continue animation loop
-        animationFrameRef.current = requestAnimationFrame(drawFrame);
-      };
-
-      // Start animation loop
-      animationFrameRef.current = requestAnimationFrame(drawFrame);
-
-      return () => {
-        if (animationFrameRef.current) {
-          cancelAnimationFrame(animationFrameRef.current);
-        }
-      };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [dataKey, title, ylabel, colors]);
+    }, [timeSeriesData, dataKey, title, ylabel, colors]);
 
     return <canvas ref={canvasRef} width={600} height={300} className="border border-gray-300 rounded" />;
   };
 
-  // Mapping Curve Plot - memoized to prevent unnecessary redraws
-  const MappingPlot = React.memo(({ title, xLabel, yLabel, dataPoints, xRange, yRange, currentX, currentY, color }) => {
+  // Mapping Curve Plot
+  const MappingPlot = ({ title, xLabel, yLabel, dataPoints, xRange, yRange, currentServo, color }) => {
     const canvasRef = useRef(null);
 
     useEffect(() => {
@@ -629,8 +542,11 @@ const TendonDrivenHandGUI = () => {
 
       ctx.stroke();
 
-      // Current position marker
-      if (currentX !== undefined && currentY !== undefined) {
+      // Current position marker for selected servo
+      if (currentServo !== undefined && servos[currentServo]) {
+        const servo = servos[currentServo];
+        const currentX = servo.pwm;
+        const currentY = servo.angle;
         const x = padding.left + ((currentX - xRange[0]) / (xRange[1] - xRange[0]) * plotWidth);
         const y = padding.top + plotHeight - ((currentY - yRange[0]) / (yRange[1] - yRange[0]) * plotHeight);
         
@@ -649,137 +565,13 @@ const TendonDrivenHandGUI = () => {
       }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [title, xLabel, yLabel, dataPoints, xRange, yRange, currentX, currentY, color]);
+    }, [title, xLabel, yLabel, dataPoints, xRange, yRange, servos, currentServo, color]);
 
     return <canvas ref={canvasRef} width={500} height={350} className="border border-gray-300 rounded" />;
-  });
+  };
 
-  // Tendon to Joint Coupling Plot - memoized to prevent unnecessary redraws
-  const TendonToJointPlot = React.memo(({ data, fingerType, color }) => {
-    const canvasRef = useRef(null);
-
-    useEffect(() => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-
-      const ctx = canvas.getContext('2d');
-      const width = canvas.width;
-      const height = canvas.height;
-      const padding = { top: 40, right: 100, bottom: 50, left: 70 };
-      const plotWidth = width - padding.left - padding.right;
-      const plotHeight = height - padding.top - padding.bottom;
-
-      ctx.clearRect(0, 0, width, height);
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, width, height);
-
-      ctx.fillStyle = '#f9fafb';
-      ctx.fillRect(padding.left, padding.top, plotWidth, plotHeight);
-
-      // Title
-      ctx.fillStyle = '#1f2937';
-      ctx.font = 'bold 14px Arial';
-      ctx.textAlign = 'center';
-      const jointCount = fingerType === 'thumb' ? 'Two' : 'Three';
-      ctx.fillText(`Single Tendon → ${jointCount} Joint Angles`, width / 2, 25);
-
-      // Grid
-      ctx.strokeStyle = '#e5e7eb';
-      ctx.lineWidth = 1;
-      for (let i = 0; i <= 5; i++) {
-        const y = padding.top + (plotHeight * i / 5);
-        ctx.beginPath();
-        ctx.moveTo(padding.left, y);
-        ctx.lineTo(padding.left + plotWidth, y);
-        ctx.stroke();
-      }
-
-      // Axes
-      ctx.fillStyle = '#6b7280';
-      ctx.font = '11px Arial';
-      for (let i = 0; i <= 5; i++) {
-        const y = padding.top + (plotHeight * i / 5);
-        const val = 100 - (100 * i / 5);
-        ctx.textAlign = 'right';
-        ctx.fillText(val.toFixed(0) + '°', padding.left - 5, y + 4);
-      }
-
-      ctx.save();
-      ctx.translate(20, height / 2);
-      ctx.rotate(-Math.PI / 2);
-      ctx.fillStyle = '#374151';
-      ctx.font = 'bold 12px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText('Joint Angle (degrees)', 0, 0);
-      ctx.restore();
-
-      ctx.fillStyle = '#374151';
-      ctx.font = 'bold 12px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText('Tendon Displacement (mm)', width / 2, height - 10);
-
-      // Define joints based on finger type
-      const plotJoints = fingerType === 'thumb' 
-        ? [
-            { key: 'mcp', color: '#8b5cf6', label: 'MCP' },
-            { key: 'ip', color: '#3b82f6', label: 'IP' }
-          ]
-        : [
-            { key: 'mcp', color: '#8b5cf6', label: 'MCP' },
-            { key: 'pip', color: '#3b82f6', label: 'PIP' },
-            { key: 'dip', color: '#10b981', label: 'DIP' }
-          ];
-
-      // Plot curves
-      plotJoints.forEach(joint => {
-        ctx.strokeStyle = joint.color;
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-
-        data.forEach((point, idx) => {
-          const x = padding.left + ((point.delta + 20) / 40 * plotWidth);
-          const y = padding.top + plotHeight - (point[joint.key] / 100 * plotHeight);
-
-          if (idx === 0) {
-            ctx.moveTo(x, y);
-          } else {
-            ctx.lineTo(x, y);
-          }
-        });
-
-        ctx.stroke();
-      });
-
-      // Legend
-      const legendX = width - padding.right + 10;
-      let legendY = padding.top + 20;
-      plotJoints.forEach(joint => {
-        ctx.fillStyle = joint.color;
-        ctx.fillRect(legendX, legendY, 30, 4);
-        ctx.fillStyle = '#374151';
-        ctx.font = 'bold 11px Arial';
-        ctx.textAlign = 'left';
-        ctx.fillText(joint.label, legendX + 35, legendY + 4);
-        legendY += 20;
-      });
-
-      // X-axis labels
-      ctx.fillStyle = '#6b7280';
-      ctx.font = '11px Arial';
-      ctx.textAlign = 'center';
-      for (let i = 0; i <= 4; i++) {
-        const x = padding.left + (plotWidth * i / 4);
-        const val = -20 + (40 * i / 4);
-        ctx.fillText(val.toFixed(0), x, padding.top + plotHeight + 20);
-      }
-
-    }, [data, fingerType, color]);
-
-    return <canvas ref={canvasRef} width={900} height={400} className="border border-gray-300 rounded mx-auto" />;
-  });
-
-  // Control Page - inline JSX to prevent component remounting
-  const controlPageContent = (
+  // Control Page
+  const ControlPage = () => (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <div className="bg-white rounded-lg shadow-md p-4">
         <h2 className="text-lg font-bold text-gray-800 mb-4">Actuator Control</h2>
@@ -833,7 +625,7 @@ const TendonDrivenHandGUI = () => {
       <div className="bg-white rounded-lg shadow-md p-4">
         <h2 className="text-lg font-bold text-gray-800 mb-4">Hand Pose Visualization</h2>
         <div className="flex justify-center">
-          <HandVisualization joints={joints} servos={servos} />
+          <HandVisualization />
         </div>
         <div className="mt-4 text-xs text-gray-600 text-center">
           <p>Color-coded joints show attachment points and articulations</p>
@@ -886,8 +678,8 @@ const TendonDrivenHandGUI = () => {
     </div>
   );
 
-  // Time Series Page - inline JSX to prevent component remounting
-  const timeSeriesPageContent = (
+  // Time Series Page
+  const TimeSeriesPage = () => (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
       <div className="bg-white rounded-lg shadow-md p-4">
         <TimeSeriesPlot 
@@ -957,10 +749,10 @@ const TendonDrivenHandGUI = () => {
     </div>
   );
 
-  // Mapping Analysis Page - memoized to prevent re-renders from time series updates
-  const fingerTypes = ['thumb', 'index', 'middle', 'ring', 'pinky'];
-  
-  const mappingPageContent = React.useMemo(() => {
+  // Mapping Analysis Page
+  const MappingPage = () => {
+    const [selectedFinger, setSelectedFinger] = useState(0);
+    
     // Generate mapping data
     const pwmToAngleData = [];
     for (let pwm = PWM_MIN; pwm <= PWM_MAX; pwm += 20) {
@@ -973,24 +765,21 @@ const TendonDrivenHandGUI = () => {
     }
 
     // Generate data for each finger type
+    const fingerTypes = ['thumb', 'index', 'middle', 'ring', 'pinky'];
     const allFingerData = fingerTypes.map(type => {
       const data = [];
       for (let delta = -20; delta <= 20; delta += 0.5) {
-        const jointAngles = tendonToJoints(delta, type);
+        const joints = tendonToJoints(delta, type);
         data.push({ 
           delta, 
-          mcp: jointAngles.mcp, 
-          pip: jointAngles.pip || jointAngles.ip,
-          dip: jointAngles.dip || 0,
-          ip: jointAngles.ip || 0
+          mcp: joints.mcp, 
+          pip: joints.pip || joints.ip, // IP for thumb
+          dip: joints.dip || 0,
+          ip: joints.ip || 0
         });
       }
       return data;
     });
-
-    // Get current finger data
-    const currentServo = servos[selectedFinger];
-    const currentFingerType = fingerTypes[selectedFinger];
 
     return (
       <div className="space-y-4">
@@ -1014,160 +803,47 @@ const TendonDrivenHandGUI = () => {
                   </button>
                 ))}
               </div>
-              <div className="mt-2 text-sm text-gray-600">
-                Selected: <span className="font-bold" style={{ color: currentServo.color }}>{currentServo.name}</span>
-              </div>
             </div>
             
-            <div style={{ display: selectedFinger === 0 ? 'block' : 'none' }}>
-              <MappingPlot 
-                title={`PWM → Servo Angle (Thumb)`}
-                xLabel="PWM Command (μs)"
-                yLabel="Servo Angle (degrees)"
-                dataPoints={pwmToAngleData}
-                xRange={[PWM_MIN, PWM_MAX]}
-                yRange={[0, 180]}
-                currentX={servos[0].pwm}
-                currentY={servos[0].angle}
-                color={servos[0].color}
-              />
-            </div>
-            <div style={{ display: selectedFinger === 1 ? 'block' : 'none' }}>
-              <MappingPlot 
-                title={`PWM → Servo Angle (Index)`}
-                xLabel="PWM Command (μs)"
-                yLabel="Servo Angle (degrees)"
-                dataPoints={pwmToAngleData}
-                xRange={[PWM_MIN, PWM_MAX]}
-                yRange={[0, 180]}
-                currentX={servos[1].pwm}
-                currentY={servos[1].angle}
-                color={servos[1].color}
-              />
-            </div>
-            <div style={{ display: selectedFinger === 2 ? 'block' : 'none' }}>
-              <MappingPlot 
-                title={`PWM → Servo Angle (Middle)`}
-                xLabel="PWM Command (μs)"
-                yLabel="Servo Angle (degrees)"
-                dataPoints={pwmToAngleData}
-                xRange={[PWM_MIN, PWM_MAX]}
-                yRange={[0, 180]}
-                currentX={servos[2].pwm}
-                currentY={servos[2].angle}
-                color={servos[2].color}
-              />
-            </div>
-            <div style={{ display: selectedFinger === 3 ? 'block' : 'none' }}>
-              <MappingPlot 
-                title={`PWM → Servo Angle (Ring)`}
-                xLabel="PWM Command (μs)"
-                yLabel="Servo Angle (degrees)"
-                dataPoints={pwmToAngleData}
-                xRange={[PWM_MIN, PWM_MAX]}
-                yRange={[0, 180]}
-                currentX={servos[3].pwm}
-                currentY={servos[3].angle}
-                color={servos[3].color}
-              />
-            </div>
-            <div style={{ display: selectedFinger === 4 ? 'block' : 'none' }}>
-              <MappingPlot 
-                title={`PWM → Servo Angle (Pinky)`}
-                xLabel="PWM Command (μs)"
-                yLabel="Servo Angle (degrees)"
-                dataPoints={pwmToAngleData}
-                xRange={[PWM_MIN, PWM_MAX]}
-                yRange={[0, 180]}
-                currentX={servos[4].pwm}
-                currentY={servos[4].angle}
-                color={servos[4].color}
-              />
-            </div>
-            
+            <MappingPlot 
+              key={`pwm-angle-${selectedFinger}`}
+              title={`PWM → Servo Angle (${servos[selectedFinger].name})`}
+              xLabel="PWM Command (μs)"
+              yLabel="Servo Angle (degrees)"
+              dataPoints={pwmToAngleData}
+              xRange={[PWM_MIN, PWM_MAX]}
+              yRange={[0, 180]}
+              currentServo={selectedFinger}
+              color={servos[selectedFinger].color}
+            />
             <div className="mt-3 p-3 bg-gray-50 rounded">
               <p className="text-xs text-gray-700">
                 <strong>Linear Transfer Function:</strong> PWM duty cycle directly controls servo position.
-                Current position: <span className="font-mono font-bold">{currentServo.pwm}μs → {currentServo.angle.toFixed(1)}°</span>
+                Current position: <span className="font-mono font-bold">{servos[selectedFinger].pwm}μs → {servos[selectedFinger].angle.toFixed(1)}°</span>
               </p>
             </div>
           </div>
 
           <div className="bg-white rounded-lg shadow-md p-4">
             <div className="mb-3">
-              <h3 className="text-sm font-semibold text-gray-700">Current: {currentServo.name}</h3>
+              <h3 className="text-sm font-semibold text-gray-700">Current: {servos[selectedFinger].name}</h3>
             </div>
             
-            <div style={{ display: selectedFinger === 0 ? 'block' : 'none' }}>
-              <MappingPlot 
-                title={`Servo Angle → Tendon Δ (Thumb)`}
-                xLabel="Servo Angle (degrees)"
-                yLabel="Tendon Displacement (mm)"
-                dataPoints={angleToTendonData}
-                xRange={[0, 180]}
-                yRange={[-20, 20]}
-                currentX={servos[0].angle}
-                currentY={angleToTendonDelta(servos[0].angle)}
-                color={servos[0].color}
-              />
-            </div>
-            <div style={{ display: selectedFinger === 1 ? 'block' : 'none' }}>
-              <MappingPlot 
-                title={`Servo Angle → Tendon Δ (Index)`}
-                xLabel="Servo Angle (degrees)"
-                yLabel="Tendon Displacement (mm)"
-                dataPoints={angleToTendonData}
-                xRange={[0, 180]}
-                yRange={[-20, 20]}
-                currentX={servos[1].angle}
-                currentY={angleToTendonDelta(servos[1].angle)}
-                color={servos[1].color}
-              />
-            </div>
-            <div style={{ display: selectedFinger === 2 ? 'block' : 'none' }}>
-              <MappingPlot 
-                title={`Servo Angle → Tendon Δ (Middle)`}
-                xLabel="Servo Angle (degrees)"
-                yLabel="Tendon Displacement (mm)"
-                dataPoints={angleToTendonData}
-                xRange={[0, 180]}
-                yRange={[-20, 20]}
-                currentX={servos[2].angle}
-                currentY={angleToTendonDelta(servos[2].angle)}
-                color={servos[2].color}
-              />
-            </div>
-            <div style={{ display: selectedFinger === 3 ? 'block' : 'none' }}>
-              <MappingPlot 
-                title={`Servo Angle → Tendon Δ (Ring)`}
-                xLabel="Servo Angle (degrees)"
-                yLabel="Tendon Displacement (mm)"
-                dataPoints={angleToTendonData}
-                xRange={[0, 180]}
-                yRange={[-20, 20]}
-                currentX={servos[3].angle}
-                currentY={angleToTendonDelta(servos[3].angle)}
-                color={servos[3].color}
-              />
-            </div>
-            <div style={{ display: selectedFinger === 4 ? 'block' : 'none' }}>
-              <MappingPlot 
-                title={`Servo Angle → Tendon Δ (Pinky)`}
-                xLabel="Servo Angle (degrees)"
-                yLabel="Tendon Displacement (mm)"
-                dataPoints={angleToTendonData}
-                xRange={[0, 180]}
-                yRange={[-20, 20]}
-                currentX={servos[4].angle}
-                currentY={angleToTendonDelta(servos[4].angle)}
-                color={servos[4].color}
-              />
-            </div>
-            
+            <MappingPlot 
+              key={`angle-tendon-${selectedFinger}`}
+              title={`Servo Angle → Tendon Δ (${servos[selectedFinger].name})`}
+              xLabel="Servo Angle (degrees)"
+              yLabel="Tendon Displacement (mm)"
+              dataPoints={angleToTendonData}
+              xRange={[0, 180]}
+              yRange={[-20, 20]}
+              currentServo={selectedFinger}
+              color={servos[selectedFinger].color}
+            />
             <div className="mt-3 p-3 bg-gray-50 rounded">
               <p className="text-xs text-gray-700">
                 <strong>Geometric Transformation:</strong> Arc length s = r×θ (r={TENDON_PULLEY_RADIUS}mm).
-                Current: <span className="font-mono font-bold">{currentServo.angle.toFixed(1)}° → {angleToTendonDelta(currentServo.angle).toFixed(2)}mm</span>
+                Current: <span className="font-mono font-bold">{servos[selectedFinger].angle.toFixed(1)}° → {angleToTendonDelta(servos[selectedFinger].angle).toFixed(2)}mm</span>
               </p>
             </div>
           </div>
@@ -1194,47 +870,18 @@ const TendonDrivenHandGUI = () => {
             </div>
           </div>
           
-          <div style={{ display: selectedFinger === 0 ? 'block' : 'none' }}>
-            <TendonToJointPlot 
-              data={allFingerData[0]} 
-              fingerType="thumb"
-              color={servos[0].color}
-            />
-          </div>
-          <div style={{ display: selectedFinger === 1 ? 'block' : 'none' }}>
-            <TendonToJointPlot 
-              data={allFingerData[1]} 
-              fingerType="index"
-              color={servos[1].color}
-            />
-          </div>
-          <div style={{ display: selectedFinger === 2 ? 'block' : 'none' }}>
-            <TendonToJointPlot 
-              data={allFingerData[2]} 
-              fingerType="middle"
-              color={servos[2].color}
-            />
-          </div>
-          <div style={{ display: selectedFinger === 3 ? 'block' : 'none' }}>
-            <TendonToJointPlot 
-              data={allFingerData[3]} 
-              fingerType="ring"
-              color={servos[3].color}
-            />
-          </div>
-          <div style={{ display: selectedFinger === 4 ? 'block' : 'none' }}>
-            <TendonToJointPlot 
-              data={allFingerData[4]} 
-              fingerType="pinky"
-              color={servos[4].color}
-            />
-          </div>
+          <TendonToJointPlot 
+            key={`tendon-joint-${selectedFinger}`}
+            data={allFingerData[selectedFinger]} 
+            fingerType={fingerTypes[selectedFinger]}
+            color={servos[selectedFinger].color}
+          />
           
           <div className="mt-3 p-3 bg-blue-50 rounded">
             <p className="text-sm text-gray-700 mb-2">
-              <strong>Underactuated Coupling for {currentServo.name}:</strong>
+              <strong>Underactuated Coupling for {servos[selectedFinger].name}:</strong>
             </p>
-            {currentFingerType === 'thumb' ? (
+            {fingerTypes[selectedFinger] === 'thumb' ? (
               <ul className="text-xs text-gray-700 space-y-1 ml-4">
                 <li>• <strong>MCP (purple)</strong>: Primary joint, flexes proportionally</li>
                 <li>• <strong>IP (blue)</strong>: Interphalangeal joint, coupled at ~0.89× ratio</li>
@@ -1310,9 +957,131 @@ const TendonDrivenHandGUI = () => {
         </div>
       </div>
     );
-  }, [selectedFinger, servos, joints]);
+  };
 
+  // Tendon to Joint Coupling Plot
+  const TendonToJointPlot = ({ data, fingerType, color }) => {
+    const canvasRef = useRef(null);
 
+    useEffect(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const ctx = canvas.getContext('2d');
+      const width = canvas.width;
+      const height = canvas.height;
+      const padding = { top: 40, right: 100, bottom: 50, left: 70 };
+      const plotWidth = width - padding.left - padding.right;
+      const plotHeight = height - padding.top - padding.bottom;
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.fillStyle = '#f9fafb';
+      ctx.fillRect(padding.left, padding.top, plotWidth, plotHeight);
+
+      // Title
+      ctx.fillStyle = '#1f2937';
+      ctx.font = 'bold 14px Arial';
+      ctx.textAlign = 'center';
+      const jointCount = fingerType === 'thumb' ? 'Two' : 'Three';
+      ctx.fillText(`Single Tendon → ${jointCount} Joint Angles`, width / 2, 25);
+
+      // Grid
+      ctx.strokeStyle = '#e5e7eb';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 5; i++) {
+        const y = padding.top + (plotHeight * i / 5);
+        ctx.beginPath();
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(padding.left + plotWidth, y);
+        ctx.stroke();
+      }
+
+      // Axes
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '11px Arial';
+      for (let i = 0; i <= 5; i++) {
+        const y = padding.top + (plotHeight * i / 5);
+        const val = 100 - (100 * i / 5);
+        ctx.textAlign = 'right';
+        ctx.fillText(val.toFixed(0) + '°', padding.left - 5, y + 4);
+      }
+
+      ctx.save();
+      ctx.translate(20, height / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillStyle = '#374151';
+      ctx.font = 'bold 12px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('Joint Angle (degrees)', 0, 0);
+      ctx.restore();
+
+      ctx.fillStyle = '#374151';
+      ctx.font = 'bold 12px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('Tendon Displacement (mm)', width / 2, height - 10);
+
+      // Define joints based on finger type
+      const joints = fingerType === 'thumb' 
+        ? [
+            { key: 'mcp', color: '#8b5cf6', label: 'MCP' },
+            { key: 'ip', color: '#3b82f6', label: 'IP' }
+          ]
+        : [
+            { key: 'mcp', color: '#8b5cf6', label: 'MCP' },
+            { key: 'pip', color: '#3b82f6', label: 'PIP' },
+            { key: 'dip', color: '#10b981', label: 'DIP' }
+          ];
+
+      // Plot curves
+      joints.forEach(joint => {
+        ctx.strokeStyle = joint.color;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+
+        data.forEach((point, idx) => {
+          const x = padding.left + ((point.delta + 20) / 40 * plotWidth);
+          const y = padding.top + plotHeight - (point[joint.key] / 100 * plotHeight);
+
+          if (idx === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        });
+
+        ctx.stroke();
+      });
+
+      // Legend
+      const legendX = width - padding.right + 10;
+      let legendY = padding.top + 20;
+      joints.forEach(joint => {
+        ctx.fillStyle = joint.color;
+        ctx.fillRect(legendX, legendY, 30, 4);
+        ctx.fillStyle = '#374151';
+        ctx.font = 'bold 11px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText(joint.label, legendX + 35, legendY + 4);
+        legendY += 20;
+      });
+
+      // X-axis labels
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '11px Arial';
+      ctx.textAlign = 'center';
+      for (let i = 0; i <= 4; i++) {
+        const x = padding.left + (plotWidth * i / 4);
+        const val = -20 + (40 * i / 4);
+        ctx.fillText(val.toFixed(0), x, padding.top + plotHeight + 20);
+      }
+
+    }, [data, fingerType, color]);
+
+    return <canvas ref={canvasRef} width={900} height={400} className="border border-gray-300 rounded mx-auto" />;
+  };
 
   return (
     <div className="w-full min-h-screen bg-gray-100 p-4">
@@ -1406,9 +1175,9 @@ const TendonDrivenHandGUI = () => {
         </div>
 
         {/* Page Content */}
-        {activePage === 'control' && controlPageContent}
-        {activePage === 'timeseries' && timeSeriesPageContent}
-        {activePage === 'mapping' && mappingPageContent}
+        {activePage === 'control' && <ControlPage />}
+        {activePage === 'timeseries' && <TimeSeriesPage />}
+        {activePage === 'mapping' && <MappingPage />}
       </div>
     </div>
   );
