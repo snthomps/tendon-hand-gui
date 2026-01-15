@@ -31,7 +31,7 @@ This tool is designed for **Phase 1: First-Principles System Understanding** of 
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/tendon-hand-gui.git
+git clone https://github.com/snthomps/tendon-hand-gui.git
 cd tendon-hand-gui
 
 # Install dependencies
@@ -118,9 +118,23 @@ Hand Pose
 
 Result: Natural grasping motion from a single actuator per finger
 
+## 🎓 Learning Outcomes
+
+By using this tool, you will:
+
+- ✅ Understand the complete actuation chain from PWM to motion
+- ✅ Identify where motion is governed by geometry vs. software
+- ✅ Recognize underactuated coupling behavior
+- ✅ Establish safe operating bounds
+- ✅ Develop intuition for tendon-driven system dynamics
+
+
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License - Copyright (c) 2025 GIRL IN SPACE CLUB
+
+See the [LICENSE](LICENSE) file for details.
+
 
 ## 🤝 Contributing
 
@@ -128,4 +142,5 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 
-**Built with ❤️ for robotics education and research**
+**Built with 🚀 by GIRL IN SPACE CLUB — inspiring the next generation (for robotics education and research)**
+
