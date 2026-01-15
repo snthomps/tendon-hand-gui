@@ -269,7 +269,6 @@ const TendonDrivenHandGUI = () => {
     });
 
     setJoints(newJoints);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [servos, systemEnabled]);
 
   // Collect time series data
@@ -333,7 +332,6 @@ const TendonDrivenHandGUI = () => {
     });
 
     setWarnings(newWarnings);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [servos, joints]);
 
   // Servo control handler
@@ -529,7 +527,6 @@ const TendonDrivenHandGUI = () => {
           cancelAnimationFrame(animationFrameRef.current);
         }
       };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dataKey, title, ylabel, colors]);
 
     return <canvas ref={canvasRef} width={600} height={300} className="border border-gray-300 rounded" />;
@@ -648,7 +645,6 @@ const TendonDrivenHandGUI = () => {
         ctx.stroke();
       }
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [title, xLabel, yLabel, dataPoints, xRange, yRange, currentX, currentY, color]);
 
     return <canvas ref={canvasRef} width={500} height={350} className="border border-gray-300 rounded" />;
