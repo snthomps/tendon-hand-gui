@@ -4,7 +4,12 @@ A comprehensive React-based tool for understanding, controlling, and analyzing t
 
 ![Phase 1: System Understanding](https://img.shields.io/badge/Phase-1%20System%20Understanding-blue)
 ![React](https://img.shields.io/badge/React-18+-61dafb?logo=react)
-![License](https://img.shields.io/badge/License-MIT-green)
+![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)
+
+**Developed by [GIRL IN SPACE CLUB](https://girlinspaceclub.com)**
+
+---
+
 
 ## 🎯 Overview
 
@@ -131,9 +136,15 @@ By using this tool, you will:
 
 ## 📄 License
 
-MIT License - Copyright (c) 2025 GIRL IN SPACE CLUB
+This work is licensed under [Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)](https://creativecommons.org/licenses/by-nc/4.0/).
 
-See the [LICENSE](LICENSE) file for details.
+**You are free to:**
+- Share — copy and redistribute the material
+- Adapt — remix, transform, and build upon the material
+
+**Under the following terms:**
+- **Attribution** — You must give appropriate credit to GIRL IN SPACE CLUB
+- **NonCommercial** — You may not use the material for commercial purposes
 
 
 ## 🤝 Contributing
