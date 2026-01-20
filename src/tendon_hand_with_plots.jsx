@@ -184,6 +184,13 @@ const TendonDrivenHandGUI = () => {
   // Navigation state
   const [activePage, setActivePage] = useState('control');
   const [selectedFinger, setSelectedFinger] = useState(0);
+
+  // File input ref
+  const fileInputRef = useRef(null);
+
+  // Gesture state
+  const [gestures, setGestures] = useState(null);
+  const [currentGestureName, setCurrentGestureName] = useState("");
   
   // Servo state (PWM values 500-2500 microseconds)
   const [servos, setServos] = useState([
@@ -254,6 +261,51 @@ const TendonDrivenHandGUI = () => {
       return { mcp: mcpAngle, pip: pipAngle, dip: dipAngle };
     }
   };
+
+  // Handle gestures file upload
+  const gesturesFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const json = JSON.parse(e.target.result);
+        setGestures(json);
+        
+        // Auto-select the first gesture found in the file
+        const firstGesture = Object.keys(json)[0];
+        if (firstGesture) {
+          applyGesture(firstGesture, json);
+        }
+      } catch (err) {
+        setWarnings(prev => [...prev, "Failed to parse JSON file. Check format."]);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+const applyGesture = (name, data = gestures) => {
+  if (!data || !data[name]) return;
+  
+  const poseData = data[name].angles;
+  const fingerMap = { "TH": 0, "IN": 1, "MI": 2, "RI": 3, "PI": 4 };
+
+  setCurrentGestureName(name);
+  setServos((prev) =>
+    prev.map((s) => {
+      const shorthand = Object.keys(fingerMap).find(key => fingerMap[key] === s.id);
+      const newAngle = poseData[shorthand];
+
+      if (newAngle !== undefined) {
+        // Map angle back to PWM: (Angle / 180 * 2000) + 500
+        const calculatedPwm = (newAngle / 180) * 2000 + 500;
+        return { ...s, angle: newAngle, pwm: Math.round(calculatedPwm) };
+      }
+      return s;
+    })
+  );
+};
 
   // Update joints based on servo positions
   useEffect(() => {
@@ -831,6 +883,31 @@ const TendonDrivenHandGUI = () => {
         <div className="flex justify-center">
           <HandVisualization joints={joints} servos={servos} />
         </div>
+        {gestures && (
+          <div className="flex items-center gap-2 bg-blue-50 p-1 rounded border border-blue-200">
+            <span className="text-xs font-bold text-blue-700 ml-2">GESTURE:</span>
+            <select 
+              value={currentGestureName}
+              onChange={(e) => applyGesture(e.target.value)}
+              className="bg-white border border-gray-300 text-gray-700 text-sm rounded focus:ring-blue-500 focus:border-blue-500 p-1"
+            >
+              {Object.keys(gestures).map((key) => (
+                <option key={key} value={key}>{key.replace('LETTER_', 'Letter ')}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        <div onClick={() => fileInputRef.current?.click()} className="m-2 px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 flex items-center gap-2 cursor-pointer transition-colors">
+          <Activity size={16} />
+          {gestures ? "Change File" : "Upload Gestures"}
+          <input 
+            type="file" 
+            accept=".json" 
+            ref={fileInputRef}
+            onChange={gesturesFileUpload} 
+            className="hidden" 
+          />
+          </div>
         <div className="mt-4 text-xs text-gray-600 text-center">
           <p>Color-coded joints show attachment points and articulations</p>
           <p>Fingers remain anchored to palm - servos pull tendons from forearm</p>
