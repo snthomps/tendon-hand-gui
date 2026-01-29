@@ -285,6 +285,7 @@ const TendonDrivenHandGUI = () => {
     reader.readAsText(file);
   };
 
+// Apply a gesture data to the servos
 const applyGesture = (name, data = gestures) => {
   if (!data || !data[name]) return;
   
@@ -295,7 +296,7 @@ const applyGesture = (name, data = gestures) => {
   setServos((prev) =>
     prev.map((s) => {
       const shorthand = Object.keys(fingerMap).find(key => fingerMap[key] === s.id);
-      const newAngle = poseData[shorthand];
+      const newAngle = Math.max(0, Math.min(180, poseData[shorthand]));
 
       if (newAngle !== undefined) {
         // Map angle back to PWM: (Angle / 180 * 2000) + 500
